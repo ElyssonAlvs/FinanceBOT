@@ -425,7 +425,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let existente = '';\n// Agora pegamos do nó Extract que transformou CSV em JSON\nconst dados = $('Extract (registrar)').all();\n\nif (dados.length > 0 && dados[0].json.data) {\n  // Reconstrói o CSV a partir do JSON para dar o append\n  existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n' + \n    dados.map(d => [\n      d.json.data,\n      d.json.descricao,\n      d.json.valor,\n      d.json.categoria,\n      d.json.forma_pagamento || '',\n      d.json.tipo || 'despesa'\n    ].join(',')).join('\\n') + '\\n';\n} else {\n  existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n';\n}\n\nconst novaLinha = $('Parse + Valida').item.json.csvLine;\nconst conteudoFinal = existente + novaLinha;\n\nreturn [\n  {\n    json: {\n      chatId: $('Parse + Valida').item.json.chatId,\n      mensagem: $('Parse + Valida').item.json.mensagem,\n    },\n    binary: {\n      data: {\n        data: Buffer.from(conteudoFinal, 'utf8').toString('base64'),\n        mimeType: 'text/csv',\n        fileName: 'gastos.csv',\n      },\n    },\n  },\n];"
+        "jsCode": "const novaLinha = $('Parse + Valida').item.json.csvLine;\nlet existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n';\n\nconst dados = $('Extract (registrar)').all();\nif (dados.length > 0 && dados[0].json.data) {\n  existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n' + \n    dados.map(d => [\n      d.json.data,\n      d.json.descricao,\n      d.json.valor,\n      d.json.categoria,\n      d.json.forma_pagamento || '',\n      d.json.tipo || 'despesa'\n    ].join(',')).join('\\n') + '\\n';\n}\n\nconst conteudoFinal = existente + novaLinha;\n\nreturn [\n  {\n    json: {\n      chatId: $('Parse + Valida').item.json.chatId,\n      mensagem: $('Parse + Valida').item.json.mensagem,\n    },\n    binary: {\n      data: {\n        data: Buffer.from(conteudoFinal, 'utf8').toString('base64'),\n        mimeType: 'text/csv',\n        fileName: 'gastos.csv',\n      },\n    },\n  },\n];"
       },
       "id": "aa121cbc-bc2e-4258-b263-308a0cd6da34",
       "name": "Append CSV",
@@ -454,8 +454,8 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chatId }}",
-        "text": "={{ $json.mensagem }}",
+        "chatId": "={{ $('Parse + Valida').item.json.chatId }}",
+        "text": "={{ $('Parse + Valida').item.json.mensagem }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
