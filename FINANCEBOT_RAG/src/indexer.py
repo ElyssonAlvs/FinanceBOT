@@ -4,6 +4,9 @@ from chromadb.utils import embedding_functions
 import hashlib
 from typing import List, Dict
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Indexer:
     def __init__(self, db_path: str = "./chroma_db", collection_name: str = "gastos"):
