@@ -27,4 +27,19 @@ O projeto oferece dois caminhos, dependendo da sua necessidade de análise.
 | `/perguntar` | IA responde com base no histórico | ❌ | ✅ |
 
 ---
+
+## 🤖 Detalhamento dos Comandos (V2)
+
+Na **Versão 2 (RAG)**, o bot oferece uma experiência mais rica. Abaixo está a lista exata de como os comandos respondem:
+
+- **📝 Registrar gasto (Linguagem Natural)**: Basta escrever como você falaria.
+    - *Ex: "Almoço 35 reais no crédito"*
+- **📋 `/ver`**: Lista detalhada dos últimos 10 registros financeiros.
+- **📊 `/resumo`**: Gera um balanço percentual e total por categoria (ex: Alimentação, Transporte).
+- **📥 `/baixar`**: Envia o arquivo `gastos.csv` diretamente no chat para você abrir no Excel/Sheets.
+- **🔍 `/perguntar <pergunta>`**: Consulta inteligente usando IA e sua base histórica.
+    - *Ex: "/perguntar quanto gastei com uber esse mês?"*
+- **💡 `/ajuda`**: Exibe o menu de comandos disponíveis e exemplos de uso.
+
+---
 [Voltar ao README](../README.md)
