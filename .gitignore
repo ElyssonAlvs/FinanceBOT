@@ -1,0 +1,24 @@
+# Dados sensíveis do usuário
+**/gastos.csv
+**/chroma_db/
+.env
+
+# Python
+__pycache__/
+.venv/
+.python-version
+uv.lock
+build/
+dist/
+wheels/
+*.egg-info
+*.py[oc]
+
+# Logs e arquivos temporários
+*.log
+*.tmp
+tool-outputs/
+generate_mock_data.py
+add_welcome.py
+fix_workflow.py
+fix_workflow_v2.py

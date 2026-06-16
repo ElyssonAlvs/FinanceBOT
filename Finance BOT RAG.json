@@ -1,0 +1,1083 @@
+{
+  "name": "Finance BOT V2 (RAG)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const texto = $('Telegram Trigger4').item.json.message.text || '';\nconst pergunta = texto.replace(/^\\/perguntar\\s*/i, '').trim();\nreturn [{ json: { pergunta, chatId: $('Telegram Trigger4').item.json.message.chat.id } }];"
+      },
+      "id": "545922aa-5ed1-4c5d-be89-ed41f3837f06",
+      "name": "RAG_Extrai_Pergunta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        7952
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/search",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.pergunta }}"
+            },
+            {
+              "name": "n_results",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90ca0897-96c1-46d6-9b6f-0ad429e739b0",
+      "name": "RAG_HTTP_Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        7952
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/analytics",
+        "options": {},
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "t",
+              "value": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "5ee053d3-0f02-431c-9188-dc1892fe4b8f",
+      "name": "RAG_HTTP_Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        8208
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "30dd44dc-ac0b-43b3-ba34-72e2f21aff29",
+      "name": "RAG_Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        560,
+        7968
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ragData = $(\"RAG_HTTP_Search\").first().json;\nconst analytics = $(\"RAG_HTTP_Analytics\").first().json;\nconst pergunta = $(\"RAG_Extrai_Pergunta\").first().json.pergunta;\nconst chatId = $(\"RAG_Extrai_Pergunta\").first().json.chatId;\n\nconst resultados = (ragData.results || []).map((r, i) => {\n  const d = r.metadata || r;\n  return `[${i+1}] ${d.data || ''} | ${d.descricao || ''} | R$ ${parseFloat(d.valor || 0).toFixed(2)} | ${d.categoria || ''} | ${d.forma_pagamento || '-'} | score: ${(r.score_normalized || 0).toFixed(2)}`;\n}).join('\\n');\n\nconst analiticsTexto = JSON.stringify(analytics, null, 2);\n\nconst prompt = `Você é um robô de análise financeira que SÓ lê os dados abaixo. Proibido usar memória externa.\\n\\nPergunta: \"${pergunta}\"\\n\\nDADOS REAIS DO CSV (SÓ USE ESTES):\\n${resultados || 'Vazio'}\\n\\nRESUMO CONSOLIDADO:\\n${analiticsTexto}\\n\\nINSTRUÇÃO ABSOLUTA:\\n- Se o valor no RESUMO CONSOLIDADO for R$ 24.00, você JAMAIS deve dizer R$ 60.00.\\n- Ignore qualquer informação sobre Cinema, Farmácia ou Academia se não estiverem no texto acima.\\n- Responda de forma curta e amigável em português.`;\n\nreturn [{ json: { prompt, chatId } }];"
+      },
+      "id": "d4d9e0ff-5fec-4af8-9d7d-643f39b3e6c7",
+      "name": "RAG_Monta_Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        7968
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "poll"
+        ],
+        "additionalFields": {
+          "download": false
+        }
+      },
+      "id": "fdaa4046-7f77-48c5-a1fb-f44eba6e1c31",
+      "name": "Telegram Trigger4",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        -864,
+        7792
+      ],
+      "webhookId": "3d14b7fb-47ed-4958-b042-907f918f715a",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.message.text }}",
+        "rules": {
+          "rules": [
+            {
+              "operation": "startsWith",
+              "value2": "/ver"
+            },
+            {
+              "operation": "startsWith",
+              "value2": "/baixar",
+              "output": 1
+            },
+            {
+              "operation": "startsWith",
+              "value2": "/resumo",
+              "output": 2
+            }
+          ]
+        },
+        "fallbackOutput": 3
+      },
+      "id": "354ad7a9-f009-4ec3-a256-3e49840e66dc",
+      "name": "Switch Comandos A3",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        7760
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.message.text }}",
+        "rules": {
+          "rules": [
+            {
+              "operation": "regex",
+              "value2": "/^\\/perguntar|^quanto|^qual|^quais|^onde|^como|\\?$/i"
+            },
+            {
+              "operation": "startsWith",
+              "value2": "/ajuda",
+              "output": 1
+            }
+          ]
+        },
+        "fallbackOutput": 2
+      },
+      "id": "1d3fce65-29f8-4819-9e5d-5d4f7857dea6",
+      "name": "Switch Comandos B3",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        7952
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "⏳ _Buscando seus gastos..._",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "927827a2-e2f8-4f2a-80bc-d942dc91bbab",
+      "name": "Telegram - Buscando (ver)4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        7200
+      ],
+      "webhookId": "656da173-b563-4b40-953a-b430768acc6b",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "📥 _Preparando seu arquivo..._",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "37ca1df2-8e95-4090-930c-0283fd68fad1",
+      "name": "Telegram - Preparando (baixar)4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        7392
+      ],
+      "webhookId": "8fe6fac9-c4af-4bef-ae58-b2a1832788ac",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "📊 _Calculando seu resumo..._",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "13509560-c0de-4768-96eb-8841067ae943",
+      "name": "Telegram - Calculando (resumo)4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        7680
+      ],
+      "webhookId": "00eaa1a2-e649-45b3-919b-eccb7e1c1a51",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "🔍 _Consultando minha memória financeira..._",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "a29a842a-e60f-4564-a66b-c584c03d565d",
+      "name": "Telegram - Consultando (perguntar)4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        7952
+      ],
+      "webhookId": "523d6e02-09d2-4b38-adb6-0ed4825ed53f",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "🤖 *Finance BOT V2 — Comandos disponíveis:*\n\n📝 *Registrar gasto* — Escreva em linguagem natural:\n_Ex: \"Almoço 35 reais no crédito\"_\n\n📋 `/ver` — Últimos 10 registros\n📊 `/resumo` — Balanço por categoria\n📥 `/baixar` — Receber arquivo CSV\n🔍 `/perguntar <pergunta>` — Consulta inteligente com IA\n_Ex: \"/perguntar quanto gastei com uber esse mês?\"_\n\n💡 `/ajuda` — Esta mensagem",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "bcdca17d-93a5-4fbf-be99-46f64a6af2ae",
+      "name": "Telegram - Ajuda4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        8288
+      ],
+      "webhookId": "86e379a2-4640-4af8-a29c-b007a0b79ebb",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "⏳ _Processando sua despesa..._",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "cd426a19-e9d2-4ea5-9858-a565fee75eb5",
+      "name": "Telegram - Processando4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        8544
+      ],
+      "webhookId": "d68cc336-c6b7-46f3-b852-cc8f91a21201",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/gastos.csv",
+        "options": {}
+      },
+      "id": "13443465-a39c-45d4-81a3-a396def63b7b",
+      "name": "Ler CSV (ver)4",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        176,
+        7200
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Telegram Trigger4').item.json.message.chat.id;\nlet dados = [];\n\ntry {\n  const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (binaryData) {\n    const content = binaryData.toString('utf8');\n    const lines = content.split(/\\r?\\n/).filter(l => l.trim() !== '');\n    if (lines.length > 1) {\n      const headers = lines[0].split(',').map(h => h.trim());\n      dados = lines.slice(1).map(line => {\n        const values = line.split(',');\n        const obj = {};\n        headers.forEach((h, i) => obj[h] = (values[i] || '').trim());\n        return { json: obj };\n      });\n    }\n  }\n} catch (e) {}\n\nif (dados.length === 0) {\n  return [{ json: { chatId, mensagem: '📭 Nenhum gasto registrado ainda.' } }];\n}\n\nconst emojis = { alimentacao: '🍽️', transporte: '🚗', moradia: '🏠', saude: '💊', lazer: '🎉', educacao: '📚', compras: '🛒', assinaturas: '📱', contas: '📄', outros: '📌' };\n\nconst texto = dados\n  .slice(-10)\n  .reverse()\n  .map(item => {\n    const d = item.json;\n    const icone = emojis[d.categoria] || '💰';\n    const valor = parseFloat(d.valor || 0).toFixed(2);\n    return `${icone} *${d.descricao}* — R$ ${valor}\\n📅 ${d.data} | 📂 ${d.categoria}`;\n  })\n  .join('\\n\\n');\n\nreturn [{ json: { chatId, mensagem: `📋 *Últimos gastos:*\\n\\n${texto}\\n\\n_/resumo | /baixar | /perguntar_` } }];"
+      },
+      "id": "847a284b-15f4-4d9f-bdf4-a7bf9c44474f",
+      "name": "Formata Lista4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        7200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.mensagem }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "5773ba27-087c-4b2d-ad6d-327cda3b81eb",
+      "name": "Telegram - Lista4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        784,
+        7200
+      ],
+      "webhookId": "7f4e4597-47a5-478a-be16-8a760e00b026",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/gastos.csv",
+        "options": {}
+      },
+      "id": "876db7c7-3d7d-4b81-9cbb-5414c05dacfd",
+      "name": "Ler CSV (baixar)4",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        176,
+        7392
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $('Telegram Trigger4').item.json.message.chat.id }}",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "📎 Sua planilha *gastos.csv* atualizada",
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "b60443ff-833a-45af-9160-b45330931650",
+      "name": "Telegram - Envia CSV4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        384,
+        7392
+      ],
+      "webhookId": "d8e9f122-563a-4f59-a7bb-d3160ffbe46e",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/gastos.csv",
+        "options": {}
+      },
+      "id": "c4e5314f-b2bc-4f2b-84fa-89f6b6ba8a93",
+      "name": "Ler CSV (resumo)4",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        160,
+        7680
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Telegram Trigger4').item.json.message.chat.id;\nlet dados = [];\n\ntry {\n  const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (binaryData) {\n    const content = binaryData.toString('utf8');\n    const lines = content.split(/\\r?\\n/).filter(l => l.trim() !== '');\n    if (lines.length > 1) {\n      const headers = lines[0].split(',').map(h => h.trim());\n      dados = lines.slice(1).map(line => {\n        const values = line.split(',');\n        const obj = {};\n        headers.forEach((h, i) => obj[h] = (values[i] || '').trim());\n        return { json: obj };\n      });\n    }\n  }\n} catch (e) {}\n\nif (dados.length === 0) {\n  return [{ json: { chatId, mensagem: '📭 Nenhum dado para resumo.' } }];\n}\n\nconst totais = {};\nconst porMes = {};\nconst agora = new Date();\nconst offsetBrasilia = -3 * 60;\nconst localMs = agora.getTime() + (agora.getTimezoneOffset() + offsetBrasilia) * 60000;\nconst local = new Date(localMs);\nconst mesAtual = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, '0')}`;\n\ndados.forEach(item => {\n  const d = item.json;\n  const valor = parseFloat(d.valor || 0);\n  const cat = d.categoria || 'outros';\n  const tipo = (d.tipo || 'despesa').trim().toLowerCase();\n  const mes = (d.data || '').slice(0, 7);\n  if (tipo !== 'receita') {\n    totais[cat] = (totais[cat] || 0) + valor;\n    porMes[mes] = (porMes[mes] || 0) + valor;\n  }\n});\n\nconst totalGeral = Object.values(totais).reduce((a, b) => a + b, 0);\nconst emojis = { alimentacao: '🍽️', transporte: '🚗', moradia: '🏠', saude: '💊', lazer: '🎉', educacao: '📚', compras: '🛒', assinaturas: '📱', contas: '📄', outros: '📌' };\n\nconst cats = Object.entries(totais)\n  .sort((a, b) => b[1] - a[1])\n  .map(([cat, val]) => {\n    const ic = emojis[cat] || '💰';\n    return `${ic} *${cat}:* R$ ${val.toFixed(2)} (${((val / totalGeral) * 100).toFixed(0)}%)`;\n  })\n  .join('\\n');\n\nreturn [{\n  json: {\n    chatId,\n    mensagem: `📊 *Resumo Financeiro*\\n\\n${cats}\\n\\n💵 *Total geral: R$ ${totalGeral.toFixed(2)}*\\n📅 *Este mês (${mesAtual}): R$ ${(porMes[mesAtual] || 0).toFixed(2)}*\\n📝 ${dados.length} registros`\n  }\n}];"
+      },
+      "id": "f7986981-43ff-47c8-9d6d-b9932cffb4cf",
+      "name": "Formata Resumo4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        7680
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.mensagem }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "e06f0dcb-cfda-427e-8552-36e0d3f67dbd",
+      "name": "Telegram - Resumo4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        768,
+        7680
+      ],
+      "webhookId": "14dfcc9c-9593-4bab-a8ae-96bc3d5411a4",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "Você é um assistente financeiro pessoal. Responda SEMPRE em português brasileiro. Seja direto e útil. Nunca invente valores — use apenas os dados fornecidos no contexto."
+        }
+      },
+      "id": "6f61246f-ed01-4857-a617-89b50c37c121",
+      "name": "Ollama - Responde RAG4",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        912,
+        7968
+      ]
+    },
+    {
+      "parameters": {
+        "model": "mistral:latest",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "a8ee4a4b-76ce-4b01-87a0-513de78808d6",
+      "name": "Ollama Chat Model (RAG)4",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        912,
+        8176
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "VA4wQ8C512hLfOg8",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('RAG_Monta_Prompt').item.json.chatId }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "12993752-e350-41f7-b9e4-e3af1a08ffce",
+      "name": "Telegram - Resposta RAG4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        7968
+      ],
+      "webhookId": "73305e82-2fb6-485c-9482-0a3b0729a922",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const agora = new Date();\nconst offsetBrasilia = -3 * 60;\nconst localMs = agora.getTime() + (agora.getTimezoneOffset() + offsetBrasilia) * 60000;\nconst local = new Date(localMs);\nconst ano = local.getFullYear();\nconst mes = String(local.getMonth() + 1).padStart(2, '0');\nconst dia = String(local.getDate()).padStart(2, '0');\nconst dataBrasilia = `${ano}-${mes}-${dia}`;\nreturn [{ json: { dataBrasilia } }];"
+      },
+      "id": "84e6a59d-2e41-4734-8818-abc9081bb4bc",
+      "name": "Data Brasilia4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        8544
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um extrator financeiro. Leia a mensagem abaixo e retorne SOMENTE um JSON válido, sem markdown, sem texto extra, sem explicações.\\n\\nRegras:\\n- tipo: \\\"despesa\\\" (padrão) ou \\\"receita\\\"\\n- valor: número decimal sem símbolo de moeda\\n- categoria: uma de [alimentacao, transporte, moradia, saude, lazer, educacao, compras, assinaturas, contas, outros]\\n- descricao: resumo curto em minúsculas\\n- data: hoje se não informada, formato YYYY-MM-DD\\n- forma_pagamento: pix, credito, debito, dinheiro, ou null se não informado\\n\\nData de hoje (horário de Brasília): {{ $('Data Brasilia4').item.json.dataBrasilia }}\\nMensagem: {{ $('Telegram Trigger4').item.json.message.text }}\\n\\nJSON:",
+        "options": {
+          "systemMessage": "Você é um assistente de finanças pessoais. Retorne SEMPRE e SOMENTE JSON puro válido. Nunca adicione texto fora do JSON."
+        }
+      },
+      "id": "ce5a1d2f-8cfd-4d2c-a780-2658b33c06f1",
+      "name": "AI Agent - Extrai JSON4",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        320,
+        8544
+      ]
+    },
+    {
+      "parameters": {
+        "model": "mistral:latest",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "758c0a8c-c683-4930-8d25-2e5375920474",
+      "name": "Ollama Chat Model (Extrator)4",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        320,
+        8688
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "VA4wQ8C512hLfOg8",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.item.json.output;\nlet parsed;\ntry {\n  const clean = raw.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  const match = clean.match(/\\{[\\s\\S]*\\}/);\n  if (!match) throw new Error('Sem JSON');\n  parsed = JSON.parse(match[0]);\n} catch(e) {\n  return [{ json: { chatId: $('Telegram Trigger4').item.json.message.chat.id, skip: true, mensagem: \"Não entendi o gasto. Tente: 'almoço 30 reais'\" } }];\n}\n\nif (!parsed.valor || isNaN(Number(parsed.valor))) {\n  return [{ json: { chatId: $('Telegram Trigger4').item.json.message.chat.id, skip: true, mensagem: \"Não identifiquei o valor. Ex: 'uber 15 reais'\" } }];\n}\n\nif (!parsed.data) parsed.data = $('Data Brasilia4').item.json.dataBrasilia;\nif (!parsed.categoria) parsed.categoria = 'outros';\nif (!parsed.descricao) parsed.descricao = 'sem descricao';\n\nconst csvLine = [parsed.data, parsed.descricao.replace(/,/g, ' '), Number(parsed.valor).toFixed(2), parsed.categoria, parsed.forma_pagamento || '', parsed.tipo || 'despesa'].join(',') + '\\n';\nconst emojis = { alimentacao: '🍽️', transporte: '🚗', moradia: '🏠', saude: '💊', lazer: '🎉', educacao: '📚', compras: '🛒', assinaturas: '📱', contas: '📄', outros: '📌' };\n\nreturn [{\n  json: {\n    ...parsed,\n    csvLine,\n    chatId: $('Telegram Trigger4').item.json.message.chat.id,\n    mensagem: `✅ *Registrado!*\\n\\n${emojis[parsed.categoria] || '💰'} *${parsed.descricao}*\\n💰 R$ ${Number(parsed.valor).toFixed(2)}\\n📂 ${parsed.categoria} | 📅 ${parsed.data}`\n  }\n}];"
+      },
+      "id": "49c9c92a-9d83-4803-a340-79022d7bea39",
+      "name": "Parse + Valida4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        8544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skip }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "9e3b4c12-7f8a-4d3b-9c2e-5a1b2c3d4e5f",
+      "name": "É Pergunta ou Erro?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        784,
+        8544
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/gastos.csv",
+        "options": {}
+      },
+      "id": "fea1e0ad-0397-4cb1-9027-e93df616fae5",
+      "name": "Ler CSV (registrar)4",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        8416
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n';\ntry {\n  const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (binaryData) {\n    let raw = binaryData.toString('utf8').replace(/^[^a-zA-Z0-9\"'\\n\\r]+/g, '');\n    if (raw.trim() !== '') { existente = raw; if (!existente.endsWith('\\n')) existente += '\\n'; }\n  }\n} catch (e) {}\nconst novaLinha = $('Parse + Valida4').item.json.csvLine;\nconst conteudoFinal = existente + novaLinha;\nreturn [{ json: { chatId: $('Parse + Valida4').item.json.chatId, mensagem: $('Parse + Valida4').item.json.mensagem }, binary: { data: { data: Buffer.from(conteudoFinal, 'utf8').toString('base64'), mimeType: 'text/csv', fileName: 'gastos.csv' } } }];"
+      },
+      "id": "42c3b825-ab0a-4eb6-a3d3-7cbd1190b2a7",
+      "name": "Append CSV4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        8416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/node/.n8n-files/gastos.csv",
+        "options": {}
+      },
+      "id": "9db84f6a-497c-46fd-9773-89f13cf74981",
+      "name": "Gravar CSV4",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        8416
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/index",
+        "options": {}
+      },
+      "id": "91828039-4dbf-459c-a981-00e7d64e2ada",
+      "name": "HTTP - Re-indexar RAG4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        8416
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.mensagem }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "39724254-bde5-487c-82aa-6483638f6b68",
+      "name": "Telegram - Confirma4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        8544
+      ],
+      "webhookId": "40b84768-6594-4278-9f6a-9f852cf0a25b",
+      "credentials": {
+        "telegramApi": {
+          "id": "BCfld4THDjoBXc0q",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "RAG_Extrai_Pergunta": {
+      "main": [
+        [
+          {
+            "node": "RAG_HTTP_Search",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RAG_HTTP_Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_HTTP_Search": {
+      "main": [
+        [
+          {
+            "node": "RAG_Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_HTTP_Analytics": {
+      "main": [
+        [
+          {
+            "node": "RAG_Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "RAG_Merge": {
+      "main": [
+        [
+          {
+            "node": "RAG_Monta_Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG_Monta_Prompt": {
+      "main": [
+        [
+          {
+            "node": "Ollama - Responde RAG4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger4": {
+      "main": [
+        [
+          {
+            "node": "Switch Comandos A3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Comandos A3": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Buscando (ver)4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Preparando (baixar)4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Calculando (resumo)4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch Comandos B3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Comandos B3": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Consultando (perguntar)4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Ajuda4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Processando4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Buscando (ver)4": {
+      "main": [
+        [
+          {
+            "node": "Ler CSV (ver)4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Preparando (baixar)4": {
+      "main": [
+        [
+          {
+            "node": "Ler CSV (baixar)4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Calculando (resumo)4": {
+      "main": [
+        [
+          {
+            "node": "Ler CSV (resumo)4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Consultando (perguntar)4": {
+      "main": [
+        [
+          {
+            "node": "RAG_Extrai_Pergunta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Processando4": {
+      "main": [
+        [
+          {
+            "node": "Data Brasilia4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler CSV (ver)4": {
+      "main": [
+        [
+          {
+            "node": "Formata Lista4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formata Lista4": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Lista4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler CSV (baixar)4": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Envia CSV4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler CSV (resumo)4": {
+      "main": [
+        [
+          {
+            "node": "Formata Resumo4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formata Resumo4": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Resumo4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama - Responde RAG4": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Resposta RAG4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model (RAG)4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ollama - Responde RAG4",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Brasilia4": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Extrai JSON4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Extrai JSON4": {
+      "main": [
+        [
+          {
+            "node": "Parse + Valida4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model (Extrator)4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Extrai JSON4",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Valida4": {
+      "main": [
+        [
+          {
+            "node": "É Pergunta ou Erro?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Pergunta ou Erro?": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Confirma4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ler CSV (registrar)4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler CSV (registrar)4": {
+      "main": [
+        [
+          {
+            "node": "Append CSV4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append CSV4": {
+      "main": [
+        [
+          {
+            "node": "Gravar CSV4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar CSV4": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Re-indexar RAG4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Re-indexar RAG4": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Confirma4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "instanceId": "1011327a1266fb7bf6851bb58b3035adaafd5fa7aa022e61bec6ae723fc2a11b"
+  }
+}
