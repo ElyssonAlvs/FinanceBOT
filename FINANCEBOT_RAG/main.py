@@ -152,12 +152,17 @@ async def get_analytics(filepath: str = DATA_SOURCE):
             "data": maior_item['data']
         } if maior_item is not None else None
 
+        # Itens recentes para ajudar o contexto da IA
+        # .where(pd.notnull(df), None) garante que NaNs virem null no JSON
+        recent_items = df.tail(5).iloc[::-1].where(pd.notnull(df), None).to_dict(orient='records')
+
         return {
             "total_gasto": total_gasto,
             "gasto_mes_atual": gasto_mes_atual,
             "mes_referencia": mes_atual_str,
             "por_categoria": por_categoria,
             "maior_gasto": maior_gasto,
+            "recent_items": recent_items,
             "total_registros": len(df)
         }
     except Exception as e:

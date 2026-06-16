@@ -81,7 +81,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ragData = $(\"RAG_HTTP_Search\").first().json;\nconst analytics = $(\"RAG_HTTP_Analytics\").first().json;\nconst pergunta = $(\"RAG_Extrai_Pergunta\").first().json.pergunta;\nconst chatId = $(\"RAG_Extrai_Pergunta\").first().json.chatId;\n\nconst resultados = (ragData.results || []).map((r, i) => {\n  const d = r.metadata || r;\n  return `[${i+1}] ${d.data || ''} | ${d.descricao || ''} | R$ ${parseFloat(d.valor || 0).toFixed(2)} | ${d.categoria || ''} | ${d.forma_pagamento || '-'} | score: ${(r.score_normalized || 0).toFixed(2)}`;\n}).join('\\n');\n\nconst analiticsTexto = JSON.stringify(analytics, null, 2);\n\nconst prompt = `Você é um robô de análise financeira que SÓ lê os dados abaixo. Proibido usar memória externa.\\n\\nPergunta: \"${pergunta}\"\\n\\nDADOS REAIS DO CSV (SÓ USE ESTES):\\n${resultados || 'Vazio'}\\n\\nRESUMO CONSOLIDADO:\\n${analiticsTexto}\\n\\nINSTRUÇÃO ABSOLUTA:\\n- Se o valor no RESUMO CONSOLIDADO for R$ 24.00, você JAMAIS deve dizer R$ 60.00.\\n- Ignore qualquer informação sobre Cinema, Farmácia ou Academia se não estiverem no texto acima.\\n- Responda de forma curta e amigável em português.`;\n\nreturn [{ json: { prompt, chatId } }];"
+        "jsCode": "const ragData = $(\"RAG_HTTP_Search\").first().json;\nconst analytics = $(\"RAG_HTTP_Analytics\").first().json;\nconst pergunta = $(\"RAG_Extrai_Pergunta\").first().json.pergunta;\nconst chatId = $(\"RAG_Extrai_Pergunta\").first().json.chatId;\n\nconst resultados = (ragData.results || []).map((r, i) => {\n  const d = r.metadata || r;\n  return `[${i+1}] ${d.data || ''} | ${d.descricao || ''} | R$ ${parseFloat(d.valor || 0).toFixed(2)} | ${d.categoria || ''} | ${d.forma_pagamento || '-'} | score: ${(r.score_normalized || 0).toFixed(2)}`;\n}).join('\\n');\n\n// Pega os itens recentes do analytics para evitar alucinação sobre o 'último'\nconst recentes = (analytics.recent_items || []).map(d => \n  `- ${d.data}: ${d.descricao} (R$ ${parseFloat(d.valor).toFixed(2)})`\n).join('\\n');\n\nconst analiticsTexto = JSON.stringify(analytics, null, 2);\n\nconst prompt = `Você é um robô de análise financeira que SÓ lê os dados abaixo. Proibido usar memória externa.\\n\\nPergunta: \"${pergunta}\"\\n\\nDADOS REAIS DO CSV (SÓ USE ESTES):\\n${resultados || 'Vazio'}\\n\\nREGISTROS MAIS RECENTES:\\n${recentes || 'Vazio'}\\n\\nRESUMO CONSOLIDADO:\\n${analiticsTexto}\\n\\nINSTRUÇÃO ABSOLUTA:\\n- Se a pergunta for sobre o \"último\" ou \"mais recente\", use a lista de REGISTROS MAIS RECENTES.\\n- Responda de forma curta e amigável em português.`;\n\nreturn [{ json: { prompt, chatId } }];"
       },
       "id": "d4d9e0ff-5fec-4af8-9d7d-643f39b3e6c7",
       "name": "RAG_Monta_Prompt",
@@ -637,7 +637,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n';\ntry {\n  const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (binaryData) {\n    let raw = binaryData.toString('utf8').replace(/^[^a-zA-Z0-9\"'\\n\\r]+/g, '');\n    if (raw.trim() !== '') { existente = raw; if (!existente.endsWith('\\n')) existente += '\\n'; }\n  }\n} catch (e) {}\nconst novaLinha = $('Parse + Valida4').item.json.csvLine;\nconst conteudoFinal = existente + novaLinha;\nreturn [{ json: { chatId: $('Parse + Valida4').item.json.chatId, mensagem: $('Parse + Valida4').item.json.mensagem }, binary: { data: { data: Buffer.from(conteudoFinal, 'utf8').toString('base64'), mimeType: 'text/csv', fileName: 'gastos.csv' } } }];"
+        "jsCode": "const novaLinha = $('Parse + Valida4').item.json.csvLine;\nlet existente = 'data,descricao,valor,categoria,forma_pagamento,tipo\\n';\ntry {\n  const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (binaryData) {\n    let raw = binaryData.toString('utf8').replace(/^[^a-zA-Z0-9\"'\\n\\r]+/g, '').trim();\n    if (raw !== '') { \n      existente = raw + '\\n'; \n    }\n  }\n} catch (e) {}\nconst conteudoFinal = existente + novaLinha;\nreturn [{ json: { chatId: $('Parse + Valida4').item.json.chatId, mensagem: $('Parse + Valida4').item.json.mensagem }, binary: { data: { data: Buffer.from(conteudoFinal, 'utf8').toString('base64'), mimeType: 'text/csv', fileName: 'gastos.csv' } } }];"
       },
       "id": "42c3b825-ab0a-4eb6-a3d3-7cbd1190b2a7",
       "name": "Append CSV4",
@@ -681,8 +681,8 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chatId }}",
-        "text": "={{ $json.mensagem }}",
+        "chatId": "={{ $('Parse + Valida4').item.json.chatId }}",
+        "text": "={{ $('Parse + Valida4').item.json.mensagem }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
