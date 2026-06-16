@@ -39,7 +39,20 @@ Na **Versão 2 (RAG)**, o bot oferece uma experiência mais rica. Abaixo está a
 - **📥 `/baixar`**: Envia o arquivo `gastos.csv` diretamente no chat para você abrir no Excel/Sheets.
 - **🔍 `/perguntar <pergunta>`**: Consulta inteligente usando IA e sua base histórica.
     - *Ex: "/perguntar quanto gastei com uber esse mês?"*
-- **💡 `/ajuda`**: Exibe o menu de comandos disponíveis e exemplos de uso.
+- **💡 `/ajuda`**: Exibe o menu de comandos disponíveis. Ao enviar este comando, o bot responde:
+
+> 🤖 **Finance BOT V2 — Comandos disponíveis:**
+>
+> 📝 **Registrar gasto** — Escreva em linguagem natural:
+> *Ex: "Almoço 35 reais no crédito"*
+>
+> 📋 `/ver` — Últimos 10 registros
+> 📊 `/resumo` — Balanço por categoria
+> 📥 `/baixar` — Receber arquivo CSV
+> 🔍 `/perguntar <pergunta>` — Consulta inteligente com IA
+> *Ex: "/perguntar quanto gastei com uber esse mês?"*
+>
+> 💡 `/ajuda` — Esta mensagem
 
 ---
 [Voltar ao README](../README.md)
