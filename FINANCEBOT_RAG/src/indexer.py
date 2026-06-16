@@ -35,7 +35,7 @@ class Indexer:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
             
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path, encoding='utf-8')
         
         # Limpa a coleção para evitar "memórias" de dados deletados ou corrigidos
         count_before = self.collection.count()

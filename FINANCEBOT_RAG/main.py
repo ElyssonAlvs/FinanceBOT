@@ -111,7 +111,7 @@ async def get_analytics(filepath: str = DATA_SOURCE):
         raise HTTPException(status_code=404, detail="Arquivo de dados não encontrado.")
     
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(filepath, encoding='utf-8')
         if df.empty:
             return {"total_gasto": 0, "por_categoria": {}, "maior_gasto": None, "gasto_mes_atual": 0}
 
@@ -173,7 +173,7 @@ async def get_recent(filepath: str = DATA_SOURCE, limit: int = 10):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
     
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(filepath, encoding='utf-8')
         if df.empty:
             return {"count": 0, "items": []}
         
